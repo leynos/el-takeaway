@@ -1,0 +1,228 @@
+#!/usr/bin/env bash
+#
+# Copyright © 2011, David McIntosh <dmcintosh@df12.net>
+#
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided this permission
+# notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+# REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+# FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+# INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+# LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+# OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+# PERFORMANCE OF THIS SOFTWARE.
+
+set -u
+
+SUCCESS=0
+FAIL=1
+
+function has_repo
+{
+    if [[ -d './.hg' ]]; then
+        echo 'hg'
+        return ${SUCCESS}
+    elif [[ -d './.git' ]]; then
+        echo 'git'
+        return ${SUCCESS}
+    fi
+    return ${FAIL}
+}
+
+function has_uncommitted_changes
+{
+    repo_type=$1
+    if [[ "${repo_type}" == 'hg' ]]; then
+        count=$(hg status | wc -l)
+    elif [[ "${repo_type}" == 'git' ]]; then
+        count=$(git status -s | wc -l)
+    fi
+    (( count ))
+    return
+}
+
+# A simple confirmation notice, requiring the user to type 'yes' in upper or lower case
+# if -e is specified, a non-confirming response will exit
+function confirm
+{
+    typeset -l input
+    if [[ $1 == '-e' ]]; then
+        do_exit=1
+        shift
+    else
+        do_exit=0
+    fi
+    echo $*
+    read input
+    while [[ $input != 'yes' ]]; do
+        if (( do_exit )); then
+            exit ${SUCCESS}
+        fi
+        read input
+    done
+}
+
+function get_conf
+{
+    conf_file=$1
+    key=$2
+
+    if [[ ! -f "${conf_file}" ]]; then
+        return ${FAIL}
+    fi
+
+    pair=$(grep -E "^${key}\\s*=" "${conf_file}")
+    if (( $? != ${SUCCESS} )); then
+        return ${FAIL}
+    fi
+    value="${pair#*=}"
+    echo "${value## }"
+    return ${SUCCESS}
+}
+
+function write_conf
+{
+    conf_file=$1
+    key=$2
+    value=$3
+    temp_conf_file=$1.$$
+
+    if [[ -f "${conf_file}" ]]; then
+        grep -v -E "^${key}\\s*=" "${conf_file}" > "${temp_conf_file}"
+    fi
+    echo "${key} = ${value}" >> "${temp_conf_file}"
+    mv "${temp_conf_file}" "${conf_file}"
+    return ${SUCCESS}
+}
+
+# Format an individual post by removing leading and trailing quotes and
+# replacing <br> and \n with newlines
+function format_post
+{
+    #cat $1
+    jq '.[].data' < $1 | awk '\
+/^["]/  { 
+    innerstr = substr($0, 2, length($0) - 2); 
+    gsub("<br>", "\n", innerstr);
+    gsub(/\\n/, "\n", innerstr);
+    gsub(/\\["]/, "\"", innerstr);
+    print innerstr
+}
+/^[^"]/ { print $0; }'
+}
+
+# Write a post to disc, naming it for the Ello API post id
+function write_post
+{
+    typeset filename=''
+    first=1
+    filename=$(jq '.id,.body' | while IFS='' read -r line
+        do
+            if (( first )); then
+                id="${line}"
+                filename="post-${id}.txt"
+                exec 8> "${filename}"
+                first=0
+                # echo "Parsing post ${id}" >&2
+                echo "${filename}"
+            else
+                echo "$line" >&8
+            fi
+        done)
+    err=${PIPESTATUS[0]}
+    exec 8>&-
+    if (( err )); then
+        return $err
+    fi
+    tmp="${filename}.$$"
+    format_post "${filename}" > "${tmp}"
+    mv "${tmp}" "${filename}"
+}
+
+# Perform an action on each post in an Ello JSON dump
+function each_post
+{
+    while IFS='' read -r line
+    do
+        if [[ "${line:0:1}" == "{" ]]; then
+            post="${line}"
+        else
+            post="${post}${line}"
+        fi
+        if [[ "${line:0:1}" == "}" ]]; then
+            post_end=1
+            echo "${post}" | $1
+            if (( $? )); then
+                echo "${post}"
+            fi
+        fi
+    done
+}
+
+# Pull the posts from a given Ello username into the current directory
+function pull
+{
+    if (( $# > 0 )); then
+        username=$1
+        source="https://ello.co/${username}.json"
+        write_conf './.et' 'source' "${source}"
+    else
+        source=$(get_conf './.et' 'source')
+        if (( $? )); then
+            exit ${FAIL};
+        fi
+    fi
+
+    count=0
+    for i in post-*.txt
+    do
+        [[ -f "${i}" ]] && (( count++ ))
+    done
+
+    repo_type=$(has_repo)
+    rc=$?
+    if (( count ));  then
+        if (( ! rc )); then
+            confirm -e "This is a destructive activity and will overwrite all previously retrieved posts.  You do not appear to have a version control system active in this directory.  Are you sure you wish to do this?  (Type 'yes' to confirm)"
+        elif has_uncommitted_changes "${repo_type}"; then
+            confirm -e "This is a destructive activity and will overwrite all previously retrieved posts.  You appear to have uncommitted changed to posts in this directory (using version control system: ${repo_type}).  Are you sure you wish to do this?  (Type 'yes' to confirm)"
+        fi
+    fi
+
+    curl "${source}" | jq '.posts[] | {id: .id, body: .body}' | each_post write_post
+}
+
+# Print usage
+function usage
+{
+    echo "USAGE: $0 command [options ...]
+
+Where command is one of:
+
+    pull    retrieve the latest published articles from a given user:
+
+            pull username
+                specify a username to retrieve posts from
+                subsequently, this username may be omitted"
+}
+
+# Parse command line
+
+if (( $# < 1 )); then
+    usage
+    exit ${FAIL}
+fi
+
+command=$1
+shift
+case "${command}" in
+    pull)
+        pull "$@"
+        ;;
+    *)
+        usage
+        exit ${FAIL}
+        ;;
+esac
