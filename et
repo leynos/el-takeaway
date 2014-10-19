@@ -19,6 +19,7 @@ set -u
 SUCCESS=0
 FAIL=1
 
+# Returns success if the current directory is an initialized VCS repository
 function has_repo
 {
     if [[ -d './.hg' ]]; then
@@ -31,6 +32,9 @@ function has_repo
     return ${FAIL}
 }
 
+# Returns success if the current directory has uncommitted version control
+# changes
+#   has_uncommitted_changes hg | git
 function has_uncommitted_changes
 {
     repo_type=$1
@@ -43,8 +47,9 @@ function has_uncommitted_changes
     return
 }
 
-# A simple confirmation notice, requiring the user to type 'yes' in upper or lower case
-# if -e is specified, a non-confirming response will exit
+# A simple confirmation notice, requiring the user to type 'yes' in upper or
+# lower case if -e is specified, a non-confirming response will exit
+#   confirm [-e] message
 function confirm
 {
     typeset -l input
@@ -64,6 +69,8 @@ function confirm
     done
 }
 
+# Retreieve a key value pair from a conf file
+#   get_conf filename key
 function get_conf
 {
     conf_file=$1
@@ -82,6 +89,8 @@ function get_conf
     return ${SUCCESS}
 }
 
+# Write a key value pair to a conf file
+#   write_conf filename key value
 function write_conf
 {
     conf_file=$1
@@ -98,10 +107,11 @@ function write_conf
 }
 
 # Format an individual post by removing leading and trailing quotes and
-# replacing <br> and \n with newlines
+# replacing <br> and \n with newlines.  The formatted file will be written to
+# stdout
+#   format_post filename
 function format_post
 {
-    #cat $1
     jq '.[].data' < $1 | awk '\
 /^["]/  { 
     innerstr = substr($0, 2, length($0) - 2); 
@@ -114,6 +124,7 @@ function format_post
 }
 
 # Write a post to disc, naming it for the Ello API post id
+# The post should be provided via stdin
 function write_post
 {
     typeset filename=''
@@ -142,6 +153,8 @@ function write_post
 }
 
 # Perform an action on each post in an Ello JSON dump
+# The JSON dump should be provided via stdin
+#   each_post action
 function each_post
 {
     while IFS='' read -r line
@@ -162,6 +175,7 @@ function each_post
 }
 
 # Pull the posts from a given Ello username into the current directory
+#   pull [username]
 function pull
 {
     if (( $# > 0 )); then
