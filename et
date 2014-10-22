@@ -274,24 +274,29 @@ Where command is one of:
                 subsequently, this username may be omitted"
 }
 
-# Parse command line
+# if file was run as executable (as opposed to sourced)
+if [[ "$0" == "${BASH_SOURCE}" ]]; then
 
-if (( $# < 1 )); then
-    usage
-    exit ${FAIL}
-fi
+    # Parse command line
 
-command=$1
-shift
-case "${command}" in
-    pull)
-        pull "$@"
-        ;;
-    migrate)
-        migrate "$@"
-        ;;
-    *)
+    if (( $# < 1 )); then
         usage
         exit ${FAIL}
-        ;;
-esac
+    fi
+
+    command=$1
+    shift
+    case "${command}" in
+        pull)
+            pull "$@"
+            ;;
+        migrate)
+            migrate "$@"
+            ;;
+        *)
+            usage
+            exit ${FAIL}
+            ;;
+    esac
+
+fi
