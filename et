@@ -198,7 +198,7 @@ function pull
     repo_type=$(has_repo)
     rc=$?
     if (( count ));  then
-        if (( ! rc )); then
+        if (( rc )); then
             confirm -e "This is a destructive activity and will overwrite all previously retrieved posts.  You do not appear to have a version control system active in this directory.  Are you sure you wish to do this?  (Type 'yes' to confirm)"
         elif has_uncommitted_changes "${repo_type}"; then
             confirm -e "This is a destructive activity and will overwrite all previously retrieved posts.  You appear to have uncommitted changed to posts in this directory (using version control system: ${repo_type}).  Are you sure you wish to do this?  (Type 'yes' to confirm)"
