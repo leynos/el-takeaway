@@ -14,10 +14,11 @@
 # OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-set -u
-
 SUCCESS=0
 FAIL=1
+
+set -u
+shopt -s extglob
 
 # Returns success if the current directory is an initialized VCS repository
 function has_repo
@@ -133,7 +134,7 @@ function write_post
         do
             if (( first )); then
                 id="${line}"
-                filename="post-${id}.md"
+                filename="post-$(printf %012d $id).md"
                 exec 8> "${filename}"
                 first=0
                 # echo "Parsing post ${id}" >&2
@@ -174,10 +175,22 @@ function each_post
     done
 }
 
+# Exit if the unprefixed id format is in use in the current directory
+function old_ids
+{
+    for filename in post-+([1-9][0-9])*(-+([a-zA-Z0-9_])).md
+    do
+        [[ -f "${filename}" ]] || continue
+        echo "You appear to have a repository using the old unprefixed filename format.  Please run '$0 migrate'"
+        exit 1
+    done
+}
+
 # Pull the posts from a given Ello username into the current directory
 #   pull [username]
 function pull
 {
+    old_ids
     if (( $# > 0 )); then
         username=$1
         source="https://ello.co/${username}.json"
@@ -209,6 +222,44 @@ function pull
         each_post write_post
 }
 
+# Get the appropriate rename command for the repo format in use
+function get_rename_cmd
+{
+    typeset -a rename_cmd
+    repo_type=$(has_repo)
+    case "${repo_type}" in
+        hg)
+            rename_cmd=(hg rename)
+            ;;
+        git)
+            rename_cmd=(git mv)
+            ;;
+        *)
+            rename_cmd=(mv)
+            ;;
+    esac
+    echo "${rename_cmd[@]}"
+}
+
+# If there exists files using an unpadded id, migrate these to the padded
+# format
+function migrate
+{
+    typeset -a rename_cmd
+    rename_cmd=( $(get_rename_cmd) )
+    
+    filename_exp='post-([0-9]+)(-[a-zA-Z0-9_]+)*\.md'
+    for src in post-+([0-9])*(-+([a-zA-Z0-9_])).md
+    do
+        if [[ ${src} =~ ${filename_exp} ]]; then
+            id="${BASH_REMATCH[1]}"
+            tags="${src##post-+([0-9])}"
+            dest="$(printf "post-%012d%s" "${id}" "${tags}")"
+            "${rename_cmd[@]}" "${src}" "${dest}"
+        fi
+    done
+}
+
 # Print usage
 function usage
 {
@@ -235,6 +286,9 @@ shift
 case "${command}" in
     pull)
         pull "$@"
+        ;;
+    migrate)
+        migrate "$@"
         ;;
     *)
         usage
