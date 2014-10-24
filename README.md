@@ -31,4 +31,4 @@ This tool was developed on FreeBSD, but I don't see any reason why it shouldn't 
 
 This software is provided "AS IS" in the hope that someone may find it useful.  If it deletes all your backed up Ello posts, please don't kill me.
 
-Ello is probably a trademark of Modeset or Paul Budnitz or someone.  Its usage here is not intended to imply any endorsement, association or any other kind of relationship or representation.
+'Ello' is a trademark of Ello, PBC.  Its usage here is not intended to imply any endorsement, association or any other kind of relationship or representation.
