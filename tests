@@ -139,8 +139,53 @@ test_has_uncommitted_changes()
 
 test_get_conf()
 {
-    #mkdir "${dir}/.hg"
     dir=$(mkdtemp)
+    rmdir_later "${dir}"
+    cat > "${dir}/.et" << EOF
+source = https://ello.co/wtf.json
+EOF
+    actual=$(get_conf "${dir}/.et" 'foo')
+    assertFalse 'Called with invalid key' $?
+    actual=$(get_conf "${dir}/.et" 'source')
+    assertTrue 'Called with valid key' $?
+    assertEquals "https://ello.co/wtf.json" "${actual}"
+}
+
+test_write_conf()
+{
+    dir=$(mkdtemp)
+    rmdir_later "${dir}"
+    cat > "${dir}/expected" << EOF
+source = https://ello.co/wtf.json
+EOF
+    write_conf "${dir}/actual" "source" "https://ello.co/wtf.json" 
+    cmp "${dir}/expected" "${dir}/actual" 
+    assertTrue "Expected and actual files should match" $?
+}
+
+test_get_filename()
+{
+    dir=$(mkdtemp)
+    rmdir_later "${dir}"
+    while read i
+    do
+        touch "${dir}/$i"
+    done << EOF
+post-000001141677.md
+post-000002587443.md
+post-000002871989.md
+post-000002840628.md
+post-000002127388.md
+EOF
+    cd "${dir}"
+    actual=$(get_filename '1141677')
+    assertTrue 'Called with valid id 1' $?
+    assertEquals "post-000001141677.md" "${actual}"
+    actual=$(get_filename '2840628')
+    assertTrue 'Called with valid id 2' $?
+    assertEquals "post-000002840628.md" "${actual}"
+    actual=$(get_filename '546541251')
+    assertFalse 'Called with invalid id' $?
 }
 
 test_in_array()
