@@ -1,0 +1,5 @@
+[._]*.swp
+*.un~
+Session.vim
+.netrwhist
+*~
