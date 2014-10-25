@@ -18,9 +18,7 @@ typeset -i ID_DIGITS=12
 typeset -i SUCCESS=0
 typeset -i FAIL=1
 
-set -u
 shopt -s extglob
-
 
 # Returns success if the current directory is an initialized VCS repository
 function has_repo
@@ -408,6 +406,8 @@ Where command is one of:
 
 # if file was run as executable (as opposed to sourced)
 if [[ "$0" == "${BASH_SOURCE}" ]]; then
+
+    set -u
 
     # Parse command line
 
