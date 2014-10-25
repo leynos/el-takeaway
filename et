@@ -14,11 +14,13 @@
 # OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-SUCCESS=0
-FAIL=1
+typeset -i ID_DIGITS=12
+typeset -i SUCCESS=0
+typeset -i FAIL=1
 
 set -u
 shopt -s extglob
+
 
 # Returns success if the current directory is an initialized VCS repository
 function has_repo
@@ -113,7 +115,8 @@ function get_filename
 {
     id=$1
 
-    for file in post-$(printf "%012d" "${id}")*(-+([0-9A-Za-z_])).md
+    patt="%0${ID_DIGITS}d"
+    for file in post-$(printf "${patt}" "${id}")*(-+([0-9A-Za-z_])).md
     do
         [[ -f "${file}" ]] || continue
         echo "${file}"
@@ -152,7 +155,8 @@ function write_post
                 filename=$(get_filename ${id})
                 if (( $? )); then
                     # if no existing file, select new filename
-                    filename="post-$(printf %012d ${id}).md"
+                    patt="%0${ID_DIGITS}d"
+                    filename="post-$(printf "${patt}" "${id}").md"
                 fi
                 exec 8> "${filename}"
                 first=0
@@ -288,7 +292,8 @@ function migrate
         if [[ ${src} =~ ${filename_exp} ]]; then
             id=${BASH_REMATCH[1]}
             tags=${src##post-+([0-9])}
-            dest=$(printf "post-%012d%s" "${id}" "${tags}")
+            patt="post-%0${ID_DIGITS}d%s" 
+            dest=$(printf "${patt}" "${id}" "${tags}")
             "${rename_cmd[@]}" "${src}" "${dest}"
         fi
     done
