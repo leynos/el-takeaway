@@ -150,7 +150,7 @@ function write_post
             if (( first )); then
                 id=${line}
                 filename=$(get_filename ${id})
-                if (( $? )) then
+                if (( $? )); then
                     # if no existing file, select new filename
                     filename="post-$(printf %012d ${id}).md"
                 fi
