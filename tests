@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+#
+# Copyright © 2014, David McIntosh <dmcintosh@df12.net>
+#
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided this permission
+# notice appear in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+# REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+# AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+# INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+# LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+# OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+# PERFORMANCE OF THIS SOFTWARE.
+
+
+# To run these tests, shunit2 should be in a directory included in your
+# executable PATH.
+
+# shunit2 is available from:
+
+# http://code.google.com/p/shunit2/
+
+. ./et
+
+typeset -a tempdirs
+typeset old_dir
+
+# If we are running an OS which doesn't include mktemp, use shunit2's internal
+# replacement
+mkdtemp()
+{
+    local dir ind
+
+    if which mktemp > /dev/null; then
+        dir=$(mktemp -d)
+    else
+        dir=$(_shunit_mktempDir)
+    fi
+
+    echo "${dir}"
+}
+
+rmdir_later()
+{
+    local ind
+
+    ind=0
+    [[ -v tempdirs ]] && ind=${#tempdirs[@]}
+    tempdirs[${ind}]=$1
+    unset ind
+}
+
+setUp()
+{
+    old_dir=$(pwd)
+}
+
+test_has_repo()
+{
+    local dir repo_type
+
+    dir=$(mkdtemp)
+    rmdir_later "${dir}"
+    mkdir "${dir}/.hg"
+    cd ${dir}
+    repo_type=$(has_repo)
+    assertTrue "Called in directory with hg repository" $?
+    assertEquals "hg" "${repo_type}"
+
+    dir=$(mkdtemp)
+    rmdir_later "${dir}"
+    mkdir "${dir}/.git"
+    cd ${dir}
+    repo_type=$(has_repo)
+    assertTrue "Called in directory with git repository" $?
+    assertEquals "git" "${repo_type}"
+
+    dir=$(mkdtemp)
+    rmdir_later "${dir}"
+    cd ${dir}
+    repo_type=$(has_repo)
+    assertFalse "Called in directory with no repository" $?
+}
+
+test_get_conf()
+{
+    #mkdir "${dir}/.hg"
+    dir=$(mkdtemp)
+}
+
+test_in_array()
+{
+    arr=(foo bar qux)
+    in_array bar "${arr[@]}"
+    assertTrue 'Called with element present' $?
+    in_array baz "${arr[@]}"
+    assertFalse 'Called with element not present' $?
+}
+
+tearDown()
+{
+    cd "${old_dir}"
+}
+
+oneTimeTearDown()
+{
+    echo
+    echo "Removing directories:"
+    echo
+    if [[ -v tempdirs ]]; then
+        for dir in "${tempdirs[@]}"
+        do
+            rm -rvf "${dir}"
+        done
+    fi
+}
+
+. $(which shunit2)
