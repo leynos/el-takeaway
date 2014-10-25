@@ -85,7 +85,7 @@ function get_conf
     if (( $? != ${SUCCESS} )); then
         return ${FAIL}
     fi
-    value="${pair#*=}"
+    value=${pair#*=}
     echo "${value## }"
     return ${SUCCESS}
 }
@@ -105,6 +105,21 @@ function write_conf
     echo "${key} = ${value}" >> "${temp_conf_file}"
     mv "${temp_conf_file}" "${conf_file}"
     return ${SUCCESS}
+}
+
+# Print the file corresponding to the given post id to the stdout
+#   get_filename id
+function get_filename
+{
+    id=$1
+
+    for file in post-$(printf "%012d" "${id}")*(-+([0-9A-Za-z_])).md
+    do
+        [[ -f "${file}" ]] || continue
+        echo "${file}"
+        return ${SUCCESS}
+    done
+    return ${FAIL}
 }
 
 # Format an individual post by removing leading and trailing quotes and
@@ -133,8 +148,12 @@ function write_post
     filename=$(jq '.id,.created_at,.body[].data' | while IFS='' read -r line
         do
             if (( first )); then
-                id="${line}"
-                filename="post-$(printf %012d $id).md"
+                id=${line}
+                filename=$(get_filename ${id})
+                if (( $? )); then
+                    # if no existing file, select new filename
+                    filename="post-$(printf %012d ${id}).md"
+                fi
                 exec 8> "${filename}"
                 first=0
                 # echo "Parsing post ${id}" >&2
@@ -148,7 +167,7 @@ function write_post
     if (( err )); then
         return $err
     fi
-    tmp="${filename}.$$"
+    tmp=${filename}.$$
     format_post "${filename}" > "${tmp}"
     mv "${tmp}" "${filename}"
 }
@@ -161,9 +180,9 @@ function each_post
     while IFS='' read -r line
     do
         if [[ "${line:0:1}" == "{" ]]; then
-            post="${line}"
+            post=${line}
         else
-            post="${post}${line}"
+            post=${post}${line}
         fi
         if [[ "${line:0:1}" == "}" ]]; then
             post_end=1
@@ -191,11 +210,21 @@ function old_ids
 function pull
 {
     old_ids
+
+    while getopts 'i' arg;
+    do
+        case "${arg}" in
+            i)  infile=${OPTARG}
+                ;;
+        esac
+    done
+    shift $((OPTIND-1))
+
     if (( $# > 0 )); then
         username=$1
         source="https://ello.co/${username}.json"
         write_conf './.et' 'source' "${source}"
-    else
+    elif ! [[ -v infile ]]; then
         source=$(get_conf './.et' 'source')
         if (( $? )); then
             exit ${FAIL};
@@ -218,7 +247,12 @@ function pull
         fi
     fi
 
-    curl "${source}" | jq '.posts[] | {id: .id, created_at: .created_at, body: .body}' | \
+    # If an infile specified, use instead of curl
+    if [[ -v infile ]]; then
+        cat "${infile}"
+    else
+        curl "${source}" 
+    fi | jq '.posts[] | {id: .id, created_at: .created_at, body: .body}' | \
         each_post write_post
 }
 
@@ -252,12 +286,90 @@ function migrate
     for src in post-+([0-9])*(-+([a-zA-Z0-9_])).md
     do
         if [[ ${src} =~ ${filename_exp} ]]; then
-            id="${BASH_REMATCH[1]}"
-            tags="${src##post-+([0-9])}"
-            dest="$(printf "post-%012d%s" "${id}" "${tags}")"
+            id=${BASH_REMATCH[1]}
+            tags=${src##post-+([0-9])}
+            dest=$(printf "post-%012d%s" "${id}" "${tags}")
             "${rename_cmd[@]}" "${src}" "${dest}"
         fi
     done
+}
+
+# Return success if the first argument is equal to one of the remaining arguments
+#   in_array needle arg2 [arg3] ...
+function in_array
+{
+    needle=$1
+    shift
+    while (( $# > 0 ));
+    do
+        [[ "${needle}" == "$1" ]] && return ${SUCCESS}
+        shift
+    done
+    return ${FAIL}
+}
+
+# Using the first argument as a joining string, echo the remaining arguments
+# concatenated with that joining string
+#   join_array glue arg2 [arg3] ...
+function join_array
+{
+    glue=$1
+    shift
+    while (( $# > 0 ));
+    do
+        echo -n "$1"
+        shift
+        (( $# > 0 )) && echo -n "${glue}"
+    done
+}
+
+# Apply tags to a given file
+#   tag filename tag1 [tag2] ...
+function tag
+{
+    old_ids
+
+    if (( $# < 2 )); then
+        exit
+    fi
+
+    typeset -a rename_cmd
+    rename_cmd=( $(get_rename_cmd) )
+
+    filename=$1
+    shift
+    new_tags=("$@")
+
+    typeset -a tags
+    stem=${filename%.md}
+    filename_exp='post-([0-9]+)(-[a-zA-Z0-9_]+)*\.md'
+    if [[ ${filename} =~ ${filename_exp} ]]; then
+        id=${BASH_REMATCH[1]}
+        if [[ -n "${BASH_REMATCH[2]}" ]]; then
+            tags_str=${stem#post-${id}-}
+            if (( ${#tags_str} )); then
+                IFS=- tags=(${tags_str})
+            fi
+        fi
+        if (( ${#new_tags[@]} )); then
+            for tag in "${new_tags[@]}"
+            do
+                echo ${tag}
+                if [[ -v tags ]]; then
+                    ind=${#tags[@]}
+                else
+                    ind=0
+                fi
+                if (( ind ))  && in_array "${tag}" "${tags[@]}"; then
+                    continue
+                fi
+                tags[${ind}]=${tag}
+            done
+        fi
+        new_filename=$(printf \
+            post-%s-%s.md "${id}" "$(join_array '-' "${tags[@]}")")
+        "${rename_cmd[@]}" "${filename}" "${new_filename}"
+    fi
 }
 
 # Print usage
@@ -292,6 +404,9 @@ if [[ "$0" == "${BASH_SOURCE}" ]]; then
             ;;
         migrate)
             migrate "$@"
+            ;;
+        tag)
+            tag "$@"
             ;;
         *)
             usage
