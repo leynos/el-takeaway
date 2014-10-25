@@ -6,18 +6,26 @@ A tool to manage data retrieved from the Ello social network
 
 chmod 500 the `et` binary and place it somewhere in your executable path.
 
-`et command [options ...]`
+    et command [options ...]
 
 Where command is one of:
 
 pull - retrieve the latest published articles from a given user:
 
-`et pull username`
+    et pull username
 
 Specify a username to retrieve posts from.
 Subsequently, this username may be omitted.
 
 This is intended to be used in conjunction with a version control tool such as git or mercurial to allow you to more easily track the changes you have made to your Ello posts and comments.
+
+tag - apply tag(s) to a given file:
+
+    et tag filename tag1 tag2 ...
+
+Any tags already present in the filename will be ignored.
+
+If the current directory is in version control, the VCS will be used to rename the file.  Else, the OS's `mv` command will be used.
 
 ## Limitations
 
