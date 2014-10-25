@@ -84,6 +84,39 @@ test_has_repo()
     assertFalse "Called in directory with no repository" $?
 }
 
+test_has_uncommitted_changes()
+{
+    files=1
+
+    hg()
+    {
+        (( files )) || return
+        if [[ "$1" == "status" ]]; then
+            echo "M foo"
+        fi
+    }
+
+    git()
+    {
+        (( files )) || return
+        if [[ "$1" == "status" ]] && [[ "$2" == "-s" ]]; then
+            echo " M foo"
+        fi
+    }
+
+    has_uncommitted_changes hg
+    assertTrue $?
+    has_uncommitted_changes git
+    assertTrue $?
+    files=0
+    has_uncommitted_changes hg
+    assertFalse $?
+    has_uncommitted_changes git
+    assertFalse $?
+    unset -f hg
+    unset -f git
+}
+
 test_get_conf()
 {
     #mkdir "${dir}/.hg"
