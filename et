@@ -20,6 +20,15 @@ typeset -i FAIL=1
 
 shopt -s extglob
 
+# Return success if the given value is a valid Ello id (padded or unpadded)
+#   is_id candidate
+function is_id
+{
+    cand=$1
+    exp="^0*[0-9]{1,${ID_DIGITS}}$"
+    [[ "${cand}" =~ ${exp} ]]
+}
+
 # Returns success if the current directory is an initialized VCS repository
 function has_repo
 {

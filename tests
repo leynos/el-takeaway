@@ -59,6 +59,24 @@ setUp()
     old_dir=$(pwd)
 }
 
+test_is_id()
+{
+    is_id a
+    assertFalse "Called with non-id 1" $?
+    is_id a12
+    assertFalse "Called with non-id 2" $?
+    is_id " 1"
+    assertFalse "Called with non-id 3" $?
+    is_id 3216v
+    assertFalse "Called with non-id 4" $?
+    is_id 1234567890123
+    assertFalse "Called with non-id 5" $?
+    is_id 123
+    assertTrue "Called with id 1" $?
+    is_id 000000123456
+    assertTrue "Called with id 2" $?
+}
+
 test_has_repo()
 {
     local dir repo_type
