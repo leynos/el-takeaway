@@ -17,6 +17,11 @@ pull - retrieve the latest published articles from a given user:
 Specify a username to retrieve posts from.
 Subsequently, this username may be omitted.
 
+Options:
+
+    -i filename.json
+pull changes from a json file retrieved manually
+
 This is intended to be used in conjunction with a version control tool such as git or mercurial to allow you to more easily track the changes you have made to your Ello posts and comments.
 
 tag - apply tag(s) to a given file:

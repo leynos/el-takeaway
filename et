@@ -233,7 +233,7 @@ function old_ids
 }
 
 # Pull the posts from a given Ello username into the current directory
-#   pull [username]
+#   pull [-f filename.json] [username]
 function pull
 {
     old_ids
@@ -421,7 +421,7 @@ Where command is one of:
 
     pull    retrieve the latest published articles from a given user:
 
-                pull username
+                pull [username]
                     specify a username to retrieve posts from
                     subsequently, this username may be omitted
 
@@ -429,6 +429,11 @@ Where command is one of:
             control tool such as git or mercurial to allow you to more
             easily track the changes you have made to your Ello posts
             and comments.
+
+            Options:
+
+                -i filename.json
+                    pull changes from a json file retrieved manually
 
     tag     apply tag(s) to a given file:
 
