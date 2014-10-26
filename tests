@@ -77,6 +77,38 @@ test_is_id()
     assertTrue "Called with id 2" $?
 }
 
+test_filename_or_id()
+{
+    dir=$(mkdtemp)
+    rmdir_later "${dir}"
+    touch "post-000000123456.md"
+    touch "post-000000123457-fiction.md"
+    actual=$(filename_or_id "123456")
+    assertTrue "Called with present id 1" $?
+    assertEquals "post-000000123456.md" "${actual}"
+    actual=$(filename_or_id "123457")
+    assertTrue "Called with present id 2" $?
+    assertEquals "post-000000123457-fiction.md" "${actual}"
+    actual=$(filename_or_id "000000123456")
+    assertTrue "Called with present padded id 1" $?
+    assertEquals "post-000000123456.md" "${actual}"
+    actual=$(filename_or_id "000000123457")
+    assertTrue "Called with present padded id 2" $?
+    assertEquals "post-000000123457-fiction.md" "${actual}"
+    actual=$(filename_or_id "123459")
+    assertFalse "Called with absent id" $?
+    actual=$(filename_or_id "000000123459")
+    assertFalse "Called with absent padded id" $?
+    actual=$(filename_or_id "post-000000123456.md")
+    assertTrue "Called with present file 1" $?
+    assertEquals "post-000000123456.md" "${actual}"
+    actual=$(filename_or_id "post-000000123457-fiction.md")
+    assertTrue "Called with present file 2" $?
+    assertEquals "post-000000123457-fiction.md" "${actual}"
+    actual=$(filename_or_id "post-000000123459.md")
+    assertFalse "Called with absent file 1" $?
+}
+
 test_has_repo()
 {
     local dir repo_type

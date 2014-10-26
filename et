@@ -29,6 +29,22 @@ function is_id
     [[ "${cand}" =~ ${exp} ]]
 }
 
+function filename_or_id
+{
+    typeset -i id
+    if is_id "$1"; then
+        id=${1##+(0)}
+        glob=post-$(printf "%0${ID_DIGITS}d*(-+([a-zA-Z0-9_])).md" ${id})
+        # note: glob should be unquoted
+        filename=$(echo ${glob})
+    else
+        filename=$1
+    fi
+    echo "${filename}"
+    [[ -f "${filename}" ]] || return ${FAIL}
+    return ${SUCCESS}
+}
+
 # Returns success if the current directory is an initialized VCS repository
 function has_repo
 {
@@ -348,7 +364,20 @@ function tag
     typeset -a rename_cmd
     rename_cmd=( $(get_rename_cmd) )
 
-    filename=$1
+    filename=$(filename_or_id $1)
+    rc=$?
+    if (( rc )); then
+        case ${rc} in
+            1)  echo "Supplied id is not present"
+                exit ${FAIL}
+                ;;
+            2)  echo "Supplied filename is not present"
+                exit ${FAIL}
+                ;;
+            *)  exit ${rc}
+                ;;
+        esac
+    fi
     shift
     new_tags=("$@")
 
@@ -366,7 +395,6 @@ function tag
         if (( ${#new_tags[@]} )); then
             for tag in "${new_tags[@]}"
             do
-                echo ${tag}
                 if [[ -v tags ]]; then
                     ind=${#tags[@]}
                 else
