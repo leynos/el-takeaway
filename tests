@@ -262,7 +262,7 @@ test_retrieve_asset()
     function curl
     {
         assertEquals "$1" "-o"
-        assertEquals "$2" "assets/000000123456/90210-laserdisc.jpg"
+        assertEquals "$2" "assets/000000123456/000000090210-laserdisc.jpg"
         assertEquals "$3" "http://example.com/assets/90210/optimized.jpg"
         return 0
     }
@@ -277,7 +277,7 @@ test_retrieve_asset()
     assertEquals 1 $?
     unset -f curl
 
-    touch "assets/000000123456/90210-laserdisc.jpg"
+    touch "assets/000000123456/000000090210-laserdisc.jpg"
     function curl
     {
         assertTrue "curl should not be called for existing file" 1

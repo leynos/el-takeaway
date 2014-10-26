@@ -455,7 +455,8 @@ function retrieve_asset
         url="https:${url}"
     fi
 
-    path="assets/${post_id}/${asset_id}-${filename_suffix}"
+    padded_addet_id=$(printf "%0${ID_DIGITS}d" "${asset_id}")
+    path="assets/${post_id}/${padded_addet_id}-${filename_suffix}"
     mkdir -p "${path%/*}"
     if ! [[ -f "${path}" ]]; then
         curl -o "${path}" "${url}"
