@@ -243,6 +243,8 @@ function pull
         case "${arg}" in
             i)  infile=${OPTARG}
                 ;;
+            a)  with_assets=1
+                ;;
         esac
     done
     shift $((OPTIND-1))
@@ -281,6 +283,8 @@ function pull
         curl "${source}" 
     fi | jq '.posts[] | {id: .id, created_at: .created_at, body: .body}' | \
         each_post write_post
+
+    [[ -v with_assets ]] && pull_assets
 }
 
 # Get the appropriate rename command for the repo format in use
@@ -412,6 +416,89 @@ function tag
     fi
 }
 
+# Read a file and print tuples describing the assets contained within
+#   file_assets filename
+function file_assets
+{
+    awk '\
+BEGIN { in_asset=0; }
+/^\{$/ {
+    in_asset=1; has_url=0; has_alt=0; has_id=0;
+}
+/\"url\":/ {
+    has_url=1; split($0, parts, "\""); url=parts[4];
+}
+/\"alt\":/ {
+    has_alt=1; split($0, parts, "\""); alt=parts[4];
+}
+/\"asset_id\":/ {
+    has_id=1; split($0, parts, "\""); id=substr(parts[3], 3);
+}
+/^}$/ {
+    if (in_asset && has_url && has_alt && has_id) {
+        print id "|" url "|" alt
+    }
+    in_asset=0
+}' < "$1"
+}
+
+# Download the specified asset if it does not already exist
+#   retrieve_assets post_id asset_id url filename_suffix
+function retrieve_asset
+{
+    post_id=$1
+    asset_id=$2
+    url=$3
+    filename_suffix=$4
+
+    if [[ "${url:0:2}" == '//' ]]; then
+        url="https:${url}"
+    fi
+
+    path="assets/${post_id}/${asset_id}-${filename_suffix}"
+    mkdir -p "${path%/*}"
+    if ! [[ -f "${path}" ]]; then
+        curl -o "${path}" "${url}"
+        rc=$?
+        if (( rc )); then
+            echo "\
+Warning: could not retrieve asset ${asset_id} for post ${post_id}" >&2
+            return ${rc}
+        fi
+    fi
+}
+
+# Perform the specified command on each asset in turn as read from the standard
+# input, an asset being defined as a pipe delimited tuple of asset_id, url and
+# filename_suffix
+#   each_asset command < asset_list
+function each_asset
+{
+    (( $# )) || return
+    cmd=( "${@}" )
+
+    while IFS="|" read asset_id url filename_suffix remainder
+    do
+        "${cmd[@]}" "${asset_id}" "${url}" "${filename_suffix}"
+    done
+}
+
+# Retrieve all assets associated with retrieved posts
+function pull_assets
+{
+    old_ids
+
+    for src in post-+([0-9])*(-+([a-zA-Z0-9_])).md
+    do
+        filename_exp='post-([0-9]+)(-[a-zA-Z0-9_]+)*\.md'
+        if [[ "${src}" =~ ${filename_exp} ]]; then
+            post_id=${BASH_REMATCH[1]}
+            file_assets "${src}" |
+                each_asset retrieve_asset "${post_id}"
+        fi
+    done
+}
+
 # Print usage
 function usage
 {
@@ -434,6 +521,8 @@ Where command is one of:
 
                 -i filename.json
                     pull changes from a json file retrieved manually
+                -a
+                    following successful pull, retrieve post assets
 
     tag     apply tag(s) to a given file:
 
@@ -443,7 +532,13 @@ Where command is one of:
 
             If the current directory is in version control, the VCS
             will be used to rename  the file.  Else, the OS's mv
-            command will be used."
+            command will be used.
+
+    pull_assets
+            retrieve all assets associated with previously retrieved posts
+
+            Assets are downloaded to:
+                ./assets/<post_id>/<asset_id>-<asset_filename>
 }
 
 # if file was run as executable (as opposed to sourced)
@@ -469,6 +564,9 @@ if [[ "$0" == "${BASH_SOURCE}" ]]; then
             ;;
         tag)
             tag "$@"
+            ;;
+        pull_assets)
+            pull_assets "$@"
             ;;
         *)
             usage

@@ -21,6 +21,8 @@ Options:
 
     -i filename.json
 pull changes from a json file retrieved manually
+    -a
+following successful pull, retrieve post assets
 
 This is intended to be used in conjunction with a version control tool such as git or mercurial to allow you to more easily track the changes you have made to your Ello posts and comments.
 
@@ -31,6 +33,11 @@ tag - apply tag(s) to a given file:
 Any tags already present in the filename will be ignored.
 
 If the current directory is in version control, the VCS will be used to rename the file.  Else, the OS's `mv` command will be used.
+
+pull_assets - retrieve all assets associated with previously retrieved posts
+
+Assets are downloaded to:
+    ./assets/<post_id>/<asset_id>-<asset_filename>
 
 ## Testing
 

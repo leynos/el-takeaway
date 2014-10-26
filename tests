@@ -229,6 +229,74 @@ test_in_array()
     assertFalse 'Called with element not present' $?
 }
 
+test_file_assets()
+{
+    dir=$(mkdtemp)
+    rmdir_later "${dir}"
+    
+    cat > "${dir}/post-000000123456.md" << EOF
+2014-09-26T15:18:28.027Z
+Duis vitae tortor eu magna tincidunt semper sit amet nec odio. Aliquam tincidunt nibh purus, ac consequat erat maximus nec. Ut ultricies pulvinar nibh id ornare. Praesent leo massa, mattis eu ornare non, tincidunt eget est.
+
+{
+  "url": "//d324imu86q1bqn.cloudfront.net/uploads/asset/attachment/90210/optimized.jpg",
+  "via": "direct",
+  "alt": "laserdiscs.jpg",
+  "asset_id": 90210
+}
+Cras pretium porta erat id accumsan. Mauris sodales lectus in tortor eleifend egestas. Cras molestie ac ipsum ut tristique. Vestibulum ac euismod eros. Fusce eget consectetur magna.
+EOF
+    expected="90210|//d324imu86q1bqn.cloudfront.net/uploads/asset/attachment/90210/optimized.jpg|laserdiscs.jpg"
+    actual=$(file_assets "${dir}/post-000000123456.md")
+    assertEquals "${expected}" "${actual}"
+}
+
+test_retrieve_asset()
+{
+    dir=$(mkdtemp)
+    rmdir_later "${dir}"
+    cd "${dir}"
+    
+    function curl
+    {
+        assertEquals "$1" "-o"
+        assertEquals "$2" "assets/000000123456/90210-laserdisc.jpg"
+        assertEquals "$3" "http://example.com/assets/90210/optimized.jpg"
+        return 0
+    }
+    retrieve_asset 000000123456 90210 "http://example.com/assets/90210/optimized.jpg" "laserdisc.jpg"
+    unset -f curl
+
+    function curl
+    {
+        return 1
+    }
+    retrieve_asset 000000123456 90210 "http://example.com/assets/90210/optimized.jpg" "laserdisc.jpg" 2> /dev/null
+    assertEquals 1 $?
+    unset -f curl
+
+    touch "assets/000000123456/90210-laserdisc.jpg"
+    function curl
+    {
+        assertTrue "curl should not be called for existing file" 1
+        return 0
+    }
+    retrieve_asset 000000123456 90210 "http://example.com/assets/90210/optimized.jpg" "laserdisc.jpg"
+    unset -f curl
+}
+
+test_each_asset()
+{
+    input="\
+a|b|c
+d|e|f"
+    actual=$(echo "${input}" | each_asset echo)
+    expected="\
+a b c
+d e f"
+    assertEquals "${expected}" "${actual}"
+}
+
 tearDown()
 {
     cd "${old_dir}"
@@ -236,13 +304,18 @@ tearDown()
 
 oneTimeTearDown()
 {
-    echo
-    echo "Removing directories:"
-    echo
+    if [[ -v verbose ]]; then
+        echo
+        echo "Removing directories:"
+        echo
+        opts=-rvf
+    else
+        opts=-rf
+    fi
     if [[ -v tempdirs ]]; then
         for dir in "${tempdirs[@]}"
         do
-            rm -rvf "${dir}"
+            rm ${opts} -- "${dir}"
         done
     fi
 }
