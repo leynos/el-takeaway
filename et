@@ -238,7 +238,7 @@ function pull
 {
     old_ids
 
-    while getopts 'i' arg;
+    while getopts 'ia' arg;
     do
         case "${arg}" in
             i)  infile=${OPTARG}
