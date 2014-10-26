@@ -81,8 +81,10 @@ test_filename_or_id()
 {
     dir=$(mkdtemp)
     rmdir_later "${dir}"
-    touch "post-000000123456.md"
-    touch "post-000000123457-fiction.md"
+    touch "${dir}/post-000000123456.md"
+    touch "${dir}/post-000000123457-fiction.md"
+
+    cd "${dir}"
     actual=$(filename_or_id "123456")
     assertTrue "Called with present id 1" $?
     assertEquals "post-000000123456.md" "${actual}"
