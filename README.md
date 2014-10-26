@@ -34,6 +34,7 @@ This is intended to be used in conjunction with a version control tool such as g
 Apply tag(s) to a given file:
 
     et tag filename tag1 tag2 ...
+    et tag id tag1 tag2 ...
 
 Any tags already present in the filename will be ignored.
 
