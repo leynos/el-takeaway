@@ -43,7 +43,7 @@ If the current directory is in version control, the VCS will be used to rename t
 Retrieve all assets associated with previously retrieved posts
 
 Assets are downloaded to:
-    ./assets/<post_id>/<asset_id>-<asset_filename>
+    ./assets/{post_id}/{asset_id}-{asset_filename}
 
 ## Testing
 
