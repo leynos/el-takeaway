@@ -538,7 +538,7 @@ Where command is one of:
             retrieve all assets associated with previously retrieved posts
 
             Assets are downloaded to:
-                ./assets/<post_id>/<asset_id>-<asset_filename>
+                ./assets/<post_id>/<asset_id>-<asset_filename>"
 }
 
 # if file was run as executable (as opposed to sourced)
