@@ -23,6 +23,7 @@ Options:
 
     -i filename.json
 pull changes from a json file retrieved manually
+
     -a
 following successful pull, retrieve post assets
 
