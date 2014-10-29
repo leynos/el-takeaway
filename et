@@ -440,7 +440,10 @@ BEGIN { in_asset=0; }
     has_id=1; split($0, parts, "\""); id=substr(parts[3], 3);
 }
 /^}$/ {
-    if (in_asset && has_url && has_alt && has_id) {
+    if (in_asset && has_url && has_id) {
+        if (!has_alt) {
+            alt = "optimized.jpg";
+        }
         print id "|" url "|" alt
     }
     in_asset=0
