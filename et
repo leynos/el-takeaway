@@ -20,6 +20,20 @@ typeset -i FAIL=1
 
 shopt -s extglob
 
+typeset -A cookie_file_globs=(
+        [firefox]="${HOME}/.mozilla/firefox/*.default/cookies.sqlite"
+        [chromium]="${HOME}/.config/chromium/Default/Cookies"
+        [chrome]="${HOME}/.config/google-chrome/Default/Cookies"
+        [firefox_mac]="${HOME}/Library/Application Support/Firefox/Profiles/*.default/cookies.sqlite"
+        [chromium_mac]="${HOME}/Library/Application Support/Chromium/Default/Cookies"
+        [chrome_mac]="${HOME}/Library/Application Support/Google/Chrome/Default/Cookies"
+    )
+
+typeset -A cookie_queries=(
+        [firef]="SELECT name, value FROM moz_cookies WHERE baseDomain = '%s'"
+        [chrom]="SELECT name, value FROM cookies WHERE hostkey LIKE '%%%s'"
+    )
+
 # Return success if the given value is a valid Ello id (padded or unpadded)
 #   is_id candidate
 function is_id
@@ -238,17 +252,21 @@ function old_ids
 }
 
 # Pull the posts from a given Ello username into the current directory
-#   pull [-f filename.json] [username]
+#   pull [-f filename.json] [-a] [-p] [-b browser] [username]
 function pull
 {
     old_ids
 
-    while getopts 'ia' arg;
+    while getopts 'i:apb:' arg;
     do
         case "${arg}" in
             i)  infile=${OPTARG}
                 ;;
             a)  with_assets=1
+                ;;
+            p)  private_acct=1
+                ;;
+            b)  browser=${OPTARG}
                 ;;
         esac
     done
@@ -269,6 +287,25 @@ function pull
         fi
     fi
 
+    curl_cmd=( curl )
+
+    if [[ -v private_acct ]]; then
+        if [[ ! -v browser ]]; then
+            browser=$(get_conf "./.et" "browser")
+            if (( $? )); then
+                echo "No browser specified in configuration file" >&2
+                exit 8
+            fi
+        fi
+        cookie_string=$(get_cookie_string "${browser}" "ello.co")
+        rc=$?
+        (( rc )) && exit ${rc}
+        if [[ -n "${cookie_string}" ]]; then
+            curl_cmd=( "${curl_cmd[@]}" -b "${cookie_string}" )
+            write_conf "./.et" "browser" "${browser}"
+        fi
+    fi
+
     # Count the number of markdown files
     count=0
     for i in post-*.md
@@ -286,11 +323,13 @@ function pull
         fi
     fi
 
+    echo "${curl_cmd[@]}" "${source}" 
+    exit 
     # If an infile specified, use instead of curl
     if [[ -v infile ]]; then
         cat "${infile}"
     else
-        curl "${source}" 
+        "${curl_cmd[@]}" "${source}" 
     fi | jq '.posts[] | {id: .id, created_at: .created_at, body: .body}' | \
         each_post write_post
 
@@ -431,20 +470,45 @@ function tag
 function first_in_glob
 {
     local glob=$1
-    eval "for i in ${glob}; do [[ -f \"\$i\" ]] && echo \$i; break; done"
+    eval "for i in ${glob};
+        do
+            [[ -f \"\$i\" ]] && echo \$i && return ${SUCCESS};
+        done"
+    return ${FAIL}
 }
 
+# Retrieve the cookies for a given browser and domain
+#   get_cookie_table browser domain
 function get_cookie_table
 {
-    local filename=$1
+    local browser=$1
+    local filename=$(first_in_glob "${cookie_file_globs[${browser}]}")
+    local format=${cookie_queries[${browser:0:5}]}
     local domain=$2
-    local format="SELECT * FROM moz_cookies WHERE baseDomain = '%s'"
     sqlite3 "${filename}" "$(printf "${format}" "${domain}")"
 }
 
-function get_cookie_file
+# Retrieve the cookie string to be passed to curl for a given browser and
+# domain
+#   get_cookie_string browser domain
+function get_cookie_string
 {
-    echo
+    local browser=$1
+    local domain=$2
+
+    if [[ ! -v cookie_file_globs[$browser] ]]; then
+        echo "Unknown browser '$browser'" >&2
+        exit 8
+    fi
+
+    local str=$(get_cookie_table "$browser" "$domain" |
+        while IFS="|" read -a fields;
+        do
+            echo -n "${fields[0]}=${fields[1]};"
+        done)
+    if [[ -n "${str}" ]]; then
+        echo "${str:0:$(( ${#str} - 1 ))}"
+    fi
 }
 
 # Read a file and print tuples describing the assets contained within
@@ -537,15 +601,18 @@ function pull_assets
 # Print usage
 function usage
 {
-    echo "USAGE: $0 command [options ...]
+    cmd=${0##*/}
+    echo "USAGE: ${cmd} command [options ...]
 
 Where command is one of:
 
-    pull    retrieve the latest published articles from a given user:
+    pull    Retrieve the latest published articles from a given user:
 
-                pull [username]
-                    specify a username to retrieve posts from
+                ${cmd} pull [username]
+                    Specify a username to retrieve posts from
                     subsequently, this username may be omitted
+                    as it will be written to the .et conf file
+                    in the current directory
 
             This is intended to be used in conjunction with a version
             control tool such as git or mercurial to allow you to more
@@ -555,14 +622,21 @@ Where command is one of:
             Options:
 
                 -i filename.json
-                    pull changes from a json file retrieved manually
+                    Pull changes from a json file retrieved manually.
                 -a
-                    following successful pull, retrieve post assets
+                    Following successful pull, retrieve post assets.
+                -p
+                    Attempt to retrieve the data using browser credentials.
+                -b browser
+                    Specify the browser to use for retreiving credentials.
+                    If not supplied, the value in the .et conf file will
+                    be used.  If supplied, the conf file value will be
+                    overwritten.
 
-    tag     apply tag(s) to a given file:
+    tag     Apply tag(s) to a given file:
 
-                et tag filename tag1 tag2 ...
-                et tag id tag1 tag2 ...
+                ${cmd} tag filename tag1 tag2 ...
+                ${cmd} tag id tag1 tag2 ...
 
             Any tags already present in the filename will be ignored.
 
@@ -571,7 +645,7 @@ Where command is one of:
             command will be used.
 
     pull_assets
-            retrieve all assets associated with previously retrieved posts
+            Retrieve all assets associated with previously retrieved posts
 
             Assets are downloaded to:
                 ./assets/<post_id>/<asset_id>-<asset_filename>"

@@ -14,10 +14,10 @@ Where command is one of:
 
 Retrieve the latest published articles from a given user:
 
-    et pull username
+    et pull [username]
 
-Specify a username to retrieve posts from.
-Subsequently, this username may be omitted.
+Specify a username to retrieve posts from.  Subsequently, this username may be
+omitted.  as it will be written to the .et conf file in the current directory
 
 Options:
 
@@ -26,6 +26,12 @@ pull changes from a json file retrieved manually
 
     -a
 following successful pull, retrieve post assets
+    -p
+Attempt to retrieve the data using browser credentials.
+    -b browser
+Specify the browser to use for retreiving credentials.  If not supplied, the
+value in the .et conf file will be used.  If supplied, the conf file value will
+be overwritten.
 
 This is intended to be used in conjunction with a version control tool such as git or mercurial to allow you to more easily track the changes you have made to your Ello posts and comments.
 

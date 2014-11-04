@@ -299,64 +299,77 @@ d e f"
     assertEquals "${expected}" "${actual}"
 }
 
-test_first_in()
+test_first_in_glob()
 {
     dir=$(mkdtemp)
     rmdir_later "${dir}"
     cd "${dir}"
 
+    patt="foo*.txt"
+
+    actual="$(first_in_glob ${patt})"
+    rc=$?
+    assertEquals "" "${actual}"
+    assertFalse "Called with non existent glob" ${rc}
+
     touch "foo1.txt"
     touch "foo2.txt"
     touch "foo3.txt"
 
-    patt="foo*.txt"
-
-    assertEquals "foo1.txt" "$(first_in_glob ${patt})"
+    actual="$(first_in_glob ${patt})"
+    rc=$?
+    assertEquals "foo1.txt" "${actual}"
+    assertTrue "Called with existent glob" ${rc}
 }
 
 test_get_cookie_table()
 {
-    called=0
+    dir=$(mkdtemp)
+    rmdir_later "${dir}"
+    cd "${dir}"
+    touch ./foo.sqlite
+
+    called=1
     function sqlite3
     {
-        local expected_filename="foo.sqlite"
-        assertEquals "$1" "${expected_filename}"
-        local expected_query="SELECT * FROM moz_cookies WHERE baseDomain = 'ello.co'"
-        assertEquals "$2" "${expected_query}"
-        cat << EOF
-165737|ello.co|0|0|__cfduid|f39f49de8b5b40dbe98ce503f40e592960ef558205ae83|.ello.co|/|1864380153|1843580215415213|1586044541370558|0|1
-171225|ello.co|0|0|D_SID|54.53.12.99:FnAOoEqArtfsUpuKio8xolMC/mRfcqnW4tmL8mc140i|ello.co|/|1758415413|1308551084450873|1250854051841031|0|0
-173548|ello.co|0|0|remember_user_token|PIq8Y4V41QslOiO3fHjhcN5FX04eAGzkNNG6TWU4VF75sEPSMfVJPy5%3D--688bcff12a86e019c976ffcf29c313e695077538|ello.co|/|1604850874|1884351403488047|1358480547480448|1|1
-EOF
-        called=1
+        local expected_filename="./foo.sqlite"
+        assertEquals "${expected_filename}" "$1" 
+        local expected_query="SELECT name, value FROM moz_cookies WHERE baseDomain = 'ello.co'"
+        assertEquals "${expected_query}" "$2" 
+        called=0
     }
 
-    get_cookie_table "foo.sqlite" "ello.co" > /dev/null
-    assertEquals 1 ${called}
-    unset -f sqlite3
+    cookie_file_globs[firefork]="./foo.sqlite"
+    local -a output
+    local n=0
+    get_cookie_table "firefork" "ello.co"
+    assertTrue "Sqlite3 not called" ${called}
 }
 
-test_get_cookie_file()
+test_get_cookie_string()
 {
+    dir=$(mkdtemp)
+    rmdir_later "${dir}"
+    cd "${dir}"
+    touch ./foo.sqlite
+
     function sqlite3
     {
-        local expected_filename="foo.sqlite"
-        assertEquals "$1" "${expected_filename}"
-        local expected_query="SELECT * FROM moz_cookies WHERE baseDomain = 'ello.co'"
-        assertEquals "$2" "${expected_query}"
+        local expected_filename="./foo.sqlite"
+        assertEquals "${expected_filename}" "$1" 
+        local expected_query="SELECT name, value FROM moz_cookies WHERE baseDomain = 'ello.co'"
+        assertEquals "${expected_query}" "$2" 
         cat << EOF
-165737|ello.co|0|0|__cfduid|f39f49de8b5b40dbe98ce503f40e592960ef558205ae83|.ello.co|/|1864380153|1843580215415213|1586044541370558|0|1
-171225|ello.co|0|0|D_SID|54.53.12.99:FnAOoEqArtfsUpuKio8xolMC/mRfcqnW4tmL8mc140i|ello.co|/|1758415413|1308551084450873|1250854051841031|0|0
-173548|ello.co|0|0|remember_user_token|PIq8Y4V41QslOiO3fHjhcN5FX04eAGzkNNG6TWU4VF75sEPSMfVJPy5%3D--688bcff12a86e019c976ffcf29c313e695077538|ello.co|/|1604850874|1884351403488047|1358480547480448|1|1
+__cfduid|f39f49de8b5b40dbe98ce503f40e592960ef558205ae83
+D_SID|54.53.12.99:FnAOoEqArtfsUpuKio8xolMC/mRfcqnW4tmL8mc140i
+remember_user_token|PIq8Y4V41QslOiO3fHjhcN5FX04eAGzkNNG6TWU4VF75sEPSMfVJPy5%3D--688bcff12a86e019c976ffcf29c313e695077538
 EOF
     }
     expected="\
-.ello.co TRUE / TRUE 1843580215415213 __cfduid f39f49de8b5b40dbe98ce503f40e592960ef558205ae83
-ello.co FALSE / FALSE 1308551084450873 D_SID 54.53.12.99:FnAOoEqArtfsUpuKio8xolMC/mRfcqnW4tmL8mc140i
-ello.co FALSE / TRUE 1884351403488047 remember_user_token PIq8Y4V41QslOiO3fHjhcN5FX04eAGzkNNG6TWU4VF75sEPSMfVJPy5%3D--688bcff12a86e019c976ffcf29c313e695077538
-"
+__cfduid=f39f49de8b5b40dbe98ce503f40e592960ef558205ae83;D_SID=54.53.12.99:FnAOoEqArtfsUpuKio8xolMC/mRfcqnW4tmL8mc140i;remember_user_token=PIq8Y4V41QslOiO3fHjhcN5FX04eAGzkNNG6TWU4VF75sEPSMfVJPy5%3D--688bcff12a86e019c976ffcf29c313e695077538"
 
-    actual=$(get_cookie_file "foo.sqlite" "ello.co")
+    cookie_file_globs[firefork]="./foo.sqlite"
+    actual=$(get_cookie_string "firefork" "ello.co")
 
     assertEquals "${expected}" "${actual}"
 }
@@ -364,6 +377,10 @@ ello.co FALSE / TRUE 1884351403488047 remember_user_token PIq8Y4V41QslOiO3fHjhcN
 tearDown()
 {
     cd "${old_dir}"
+    unset -f sqlite3
+    if [[ -v cookie_file_globs[firefork] ]]; then
+        unset cookie_file_globs[firefork] 
+    fi
 }
 
 oneTimeTearDown()
