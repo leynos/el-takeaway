@@ -323,8 +323,6 @@ function pull
         fi
     fi
 
-    echo "${curl_cmd[@]}" "${source}" 
-    exit 
     # If an infile specified, use instead of curl
     if [[ -v infile ]]; then
         cat "${infile}"
