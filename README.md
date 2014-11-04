@@ -26,8 +26,10 @@ pull changes from a json file retrieved manually
 
     -a
 following successful pull, retrieve post assets
+
     -p
 Attempt to retrieve the data using browser credentials.
+
     -b browser
 Specify the browser to use for retreiving credentials.  If not supplied, the
 value in the .et conf file will be used.  If supplied, the conf file value will
