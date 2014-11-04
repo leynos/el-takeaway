@@ -254,10 +254,14 @@ function pull
     done
     shift $((OPTIND-1))
 
+    # If a username provided, write it to the config file
     if (( $# > 0 )); then
         username=$1
         source="https://ello.co/${username}.json"
         write_conf './.et' 'source' "${source}"
+
+    # Else, if no input file provided, require that the config file contain a
+    # username
     elif ! [[ -v infile ]]; then
         source=$(get_conf './.et' 'source')
         if (( $? )); then
@@ -265,6 +269,7 @@ function pull
         fi
     fi
 
+    # Count the number of markdown files
     count=0
     for i in post-*.md
     do
@@ -419,6 +424,27 @@ function tag
             post-%s-%s.md "${id}" "$(join_array '-' "${tags[@]}")")
         "${rename_cmd[@]}" "${filename}" "${new_filename}"
     fi
+}
+
+# Return the first item in a given glob
+#   first_in_glob glob
+function first_in_glob
+{
+    local glob=$1
+    eval "for i in ${glob}; do [[ -f \"\$i\" ]] && echo \$i; break; done"
+}
+
+function get_cookie_table
+{
+    local filename=$1
+    local domain=$2
+    local format="SELECT * FROM moz_cookies WHERE baseDomain = '%s'"
+    sqlite3 "${filename}" "$(printf "${format}" "${domain}")"
+}
+
+function get_cookie_file
+{
+    echo
 }
 
 # Read a file and print tuples describing the assets contained within
