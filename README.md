@@ -19,6 +19,8 @@ Retrieve the latest published articles from a given user:
 Specify a username to retrieve posts from.  Subsequently, this username may be
 omitted.  as it will be written to the .et conf file in the current directory
 
+This is intended to be used in conjunction with a version control tool such as git or mercurial to allow you to more easily track the changes you have made to your Ello posts and comments.
+
 Options:
 
     -i filename.json
@@ -40,8 +42,6 @@ Supported browsers:
     firefox
     chromium
     chrome
-
-This is intended to be used in conjunction with a version control tool such as git or mercurial to allow you to more easily track the changes you have made to your Ello posts and comments.
 
 ### tag
 
@@ -66,15 +66,11 @@ Assets are downloaded to:
 
 To test, first install shunit2 (see Prerequisites).  To execute tests, run `./tests`.
 
-## Limitations
-
-Your profile needs to be public.  I should be fixing this shortly, but in the meantime, you can extract the Ello cookie from your Firefox profile (assuming you use Firefox) and supply this to the curl command in the script.
-
 ## Prerequisites
 
 This tool was developed on FreeBSD, but I don't see any reason why it shouldn't run on Linux or Mac OS X.  It uses bash, curl, grep, awk and jq.  The latter is the only component that may not be installed on your system by default.  Consult your operating system handbook for instructions on installing this.  Just kidding.  The instructions are [here](https://stedolan.github.io/jq/download/).
 
-For testing, [shunit2](http://code.google.com/p/shunit2/) should be in a directory in your executable PATH variable, and set to +x.
+For testing, [shunit2](http://code.google.com/p/shunit2/) should be in a directory in your executable PATH variable, and set to `+x`.
 
 ## Disclaimers etc.
 
