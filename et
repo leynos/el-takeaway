@@ -502,6 +502,11 @@ function get_cookie_string
     local browser=$1
     local domain=$2
 
+    # Use _mac suffix if running on Mac OS X
+    if [[ $(uname -s) == "Darwin" ]]; then
+        browser="${browser%_mac}_mac"
+    fi
+
     if [[ ! -v cookie_file_globs[$browser] ]]; then
         echo "Unknown browser '$browser'" >&2
         exit 8
