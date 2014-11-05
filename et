@@ -303,6 +303,8 @@ function pull
         if [[ -n "${cookie_string}" ]]; then
             curl_cmd=( "${curl_cmd[@]}" -b "${cookie_string}" )
             write_conf "./.et" "browser" "${browser}"
+        else
+            exit 8
         fi
     fi
 
@@ -483,6 +485,12 @@ function get_cookie_table
     local filename=$(first_in_glob "${cookie_file_globs[${browser}]}")
     local format=${cookie_queries[${browser:0:5}]}
     local domain=$2
+
+    if [[ ! -f "${filename}" ]]; then
+        echo "Specified browser cookie file not available" >&2
+        return 8
+    fi
+
     sqlite3 "${filename}" "$(printf "${format}" "${domain}")"
 }
 
@@ -504,6 +512,7 @@ function get_cookie_string
         do
             echo -n "${fields[0]}=${fields[1]};"
         done)
+
     if [[ -n "${str}" ]]; then
         echo "${str:0:$(( ${#str} - 1 ))}"
     fi
