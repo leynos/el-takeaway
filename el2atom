@@ -1,0 +1,116 @@
+#!/usr/bin/env python2
+
+from __future__ import unicode_literals
+
+import os, sys, string, codecs
+
+from markdown import markdown
+import elementflow
+
+class PostReader(object):
+
+    def __init__(self, post_file):
+        self.datetime = ''
+        self.addressed = False
+        try:
+            self.datetime = post_file.next().rstrip()
+            self.first = post_file.next()
+            self.addressed = self.first.startswith('@')
+        except StopIteration:
+            pass
+        self.post_file = post_file
+        self.asset_dict = {}
+        self.asset_lines = []
+        self.in_asset = False
+
+    def __iter__(self):
+        """Itentify this object as an iterator"""
+        return self
+
+    def update_asset_dict(self, line):
+        """Store the entry represented by the current JSON line in the asset
+        dict"""
+        strip_chars = string.whitespace + '"\','
+        key, value = [part.strip(strip_chars) for part in
+                line.strip().split(':', 1)]
+        self.asset_dict[key] = value
+        self.asset_lines.append(line)
+
+    def render_asset(self):
+        """Return the HTML representation of the current asset"""
+        if not all(key in self.asset_dict for key in ['url', 'asset_id']):
+            return ''.join(self.asset_lines)
+        elif 'alt' in self.asset_dict:
+            return '<img src="{url}" alt="{alt}" />'.format(
+                    url=self.asset_dict['url'],
+                    alt=self.asset_dict['alt']
+                )
+        else:
+            return '<img src="{url}" />'.format(
+                    url=self.asset_dict['url'],
+                )
+
+    def get_next(self):
+        """Return the previously retrieved first line and set to None if the
+        first line is not None, else return the next line in the file"""
+        if self.first:
+            line = self.first
+            self.first = None
+        else:
+            line = self.post_file.next()
+        return line
+
+    def next(self):
+        """Return the next line.  Note that this is currently incorrect as it
+        will return a sequence of Nones for each line comprising an asset"""
+        line = self.get_next()
+        if line.rstrip() == '{':
+            self.in_asset = True
+            self.asset_dict = {}
+        elif line.rstrip() == '}':
+            self.in_asset = False
+            return self.render_asset()
+        elif self.in_asset:
+            self.update_asset_dict(line)
+        else:
+            return line
+
+    def read(self):
+        """Read the file contents fully, replacing assets with HTML img tags"""
+        return ''.join(line for line in self if line is not None)
+
+    def parse_markdown(self):
+        """Return the HTML representation of the markdown body"""
+        return markdown(self.read())
+
+def parse_dir(dirname, addressed=False):
+    """Yield a sequence of datetime string/body pairs for all the files in a
+    directory in reverse name order"""
+    for filename in sorted(os.listdir(dirname), reverse=True):
+        if filename.startswith('post') and filename.endswith('.md'):
+            path = os.path.join(dirname, filename)
+            with codecs.open(path, encoding='utf8') as post_file:
+                reader = PostReader(post_file)
+                if not reader.addressed or addressed:
+                    yield reader.datetime, reader.parse_markdown()
+
+def emit_atom(out_file, posts):
+    """Generate a bare bones atom feed based on a list of datetime string/body
+    pairs"""
+    with elementflow.xml(out_file, u'root', attrs={
+            'xmlns': 'http://www.w3.org/2005/Atom'
+        }, indent=True) as xml:
+        for post_datetime, post in posts:
+            with xml.container('entry'):
+                xml.element('updated', text=post_datetime)
+                with xml.container('content', attrs={
+                        'type': 'xhtml'
+                    }):
+                    with xml.container('div', attrs={
+                            'xmlns': 'http://www.w3.org/1999/xhtml'
+                        }):
+                        out_file.write(post)
+
+if __name__ == '__main__':
+
+    emit_atom(codecs.getwriter('utf8')(sys.stdout), parse_dir(sys.argv[1]))
