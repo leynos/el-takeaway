@@ -41,12 +41,12 @@ class PostReader(object):
         if not all(key in self.asset_dict for key in ['url', 'asset_id']):
             return ''.join(self.asset_lines)
         elif 'alt' in self.asset_dict:
-            return '<img src="{url}" alt="{alt}" />'.format(
+            return '<img src="{url}" alt="{alt}" />\n\n'.format(
                     url=self.asset_dict['url'],
                     alt=self.asset_dict['alt']
                 )
         else:
-            return '<img src="{url}" />'.format(
+            return '<img src="{url}" />\n\n'.format(
                     url=self.asset_dict['url'],
                 )
 
