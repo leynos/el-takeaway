@@ -15,7 +15,21 @@
 # OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-from __future__ import unicode_literals
+"""
+A script to generate an atom feed based on a directory of Ello posts backed up
+using the el-takeaway tool.  Post files must be named 'post-*.md'.  Posts
+beginning with the @ character are excluded.  Posts will be included in the
+atom feed in reverse cronological order.
+
+To install, make this file executable, then place in a directory in your
+executables path.  (This may be ~/bin).
+
+Usage: el2atom backup_dir > atom.xml
+
+The atom file will be written to the standard output
+"""
+
+from __future__ import unicode_literals, print_function, division
 
 import os, sys, string, codecs
 
@@ -23,6 +37,8 @@ from markdown import markdown
 import elementflow
 
 class PostReader(object):
+
+    """A class to read post files as created by the el-takeaway tool."""
 
     def __init__(self, post_file):
         self.datetime = ''
@@ -127,5 +143,9 @@ def emit_atom(out_file, posts):
                         out_file.write(post)
 
 if __name__ == '__main__':
+
+    if len(sys.argv) != 2:
+        print('Usage: {0} <backup_dir>'.format(sys.argv[0]))
+        sys.exit(8)
 
     emit_atom(codecs.getwriter('utf8')(sys.stdout), parse_dir(sys.argv[1]))
