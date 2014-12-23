@@ -132,12 +132,14 @@ def parse_dir(dirname, addressed=False):
     """Yield a sequence of datetime string/body pairs for all the files in a
     directory in reverse name order"""
     for filename in sorted(os.listdir(dirname), reverse=True):
-        if filename.startswith('post') and filename.endswith('.md'):
+        if filename.startswith('post-') and filename.endswith('.md'):
             path = os.path.join(dirname, filename)
+            basename = filename.split('.')[0]
+            post_id = basename.split('-')[1]
             with codecs.open(path, encoding='utf8') as post_file:
                 reader = PostReader(post_file)
                 if not reader.addressed or addressed:
-                    yield reader.datetime, reader.parse_markdown()
+                    yield reader.datetime, post_id, reader.parse_markdown()
 
 def username_from_source(source):
     """Get a username from an Ello JSON url"""
@@ -149,9 +151,11 @@ def link_from_source(source):
     """Get the www link from an Ello JSON url"""
     return source.rsplit('.', 1)[0]
     
-def emit_post(out_file, xml, post_datetime, post, author=None):
+def emit_post(out_file, xml, post_datetime, post, post_id=None, author=None):
     """Emit the XML pertaining to a single post"""
     with xml.container('entry'):
+        if post_id:
+            xml.element('id', text='https://ello.co/api/v1/posts/' + post_id.lstrip('0'))
         xml.element('updated', text=post_datetime)
         if author:
             with xml.container('author'):
@@ -180,14 +184,15 @@ def emit_atom(out_file, posts, source=None):
             xml.element('link', attrs={'href': link})
 
         try:
-            post_datetime, post = next(posts)
+            post_datetime, post_id, post = next(posts)
             xml.element('updated', text=post_datetime)
             emit_post(out_file, xml, post_datetime, post, author=username)
         except StopIteration:
             return
 
-        for post_datetime, post in posts:
-            emit_post(out_file, xml, post_datetime, post, author=username)
+        for post_datetime, post_id, post in posts:
+            emit_post(out_file, xml, post_datetime, post, post_id=post_id,
+                    author=username)
 
 def main(out_file, dirname):
     """Main script entry point, to avoid poluting global namespace"""
