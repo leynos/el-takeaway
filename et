@@ -363,7 +363,9 @@ function pull
     fi | jq '.posts[] | {id: .id, created_at: .created_at, body: .body}' | \
         each_post write_post
 
-    [[ -v with_assets ]] && pull_assets
+    if [[ -v with_assets ]]; then
+        pull_assets
+    fi
 }
 
 # Get the appropriate rename command for the repo format in use
